@@ -1,7 +1,8 @@
+import os
 import sqlite3
 import time
 
-DB_FILE = "amazon_tracker.db"
+DB_FILE = os.environ.get("DB_FILE", "amazon_tracker.db")
 
 class DBHandler:
     def __init__(self, db_file=DB_FILE):

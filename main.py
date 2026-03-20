@@ -1,4 +1,4 @@
-import argparse
+import os
 import threading
 
 from AmazonPriceTracker import AmazonPriceTracker
@@ -7,20 +7,19 @@ from TelegramNotifier import TelegramNotifier
 from db import DBHandler
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--token", required=True)
-    args = parser.parse_args()
+    BOT_TOKEN = os.environ.get("BOT_TOKEN")
+    CHECK_INTERVAL = int(os.environ.get("CHECK_INTERVAL", 1800))
 
     db = DBHandler()
-    notifier = TelegramNotifier(args.token)
+    notifier = TelegramNotifier(BOT_TOKEN)
     tracker = AmazonPriceTracker(db_handler=db, notifier=notifier)
 
-    bot = TelegramBotController(token=args.token, tracker=tracker, db=db)
+    bot = TelegramBotController(token=BOT_TOKEN, tracker=tracker, db=db)
     t = threading.Thread(target=bot.run)
     t.daemon = True
     t.start()
 
-    tracker.monitor(300)
+    tracker.monitor(CHECK_INTERVAL)
 
 if __name__=="__main__":
     main()
