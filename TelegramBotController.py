@@ -68,24 +68,32 @@ class TelegramBotController:
             if len(parts) < 3:
                 self.send_message("❌ /add <URL> <target>", chat_id)
                 return
-            url = parts[1];
+            url = parts[1]
             price_text = parts[2].replace(",", ".")
             try:
-                price = float(price_text)
-            except:
+                target_price = float(price_text)
+            except ValueError:
                 self.send_message("❌ Prezzo non valido", chat_id)
                 return
 
+            # Ottieni il tracker corretto per questo URL
             tracker = self.tracker.get_tracker_for_url(url)
-            if tracker:
-                self.db.add_product(chat_id, url, price)
-                # salva primo prezzo senza notificare
-                initial_price = tracker.get_price(url)
-                if initial_price:
-                    self.db.add_price(url, initial_price)
-                self.send_message(f"✅ Aggiunto: {url} ({price}€)\nPrimo prezzo registrato senza notifica.", chat_id)
-            else:
+            if not tracker:
                 self.send_message("❌ URL non valido o sito non supportato", chat_id)
+                return
+
+            # Salva il prodotto nel DB
+            self.db.add_product(chat_id, url, target_price)
+
+            # Salva il primo prezzo senza notificare
+            initial_price = tracker.get_price(url)
+            if initial_price is not None:
+                self.db.add_price(url, initial_price)
+
+            self.send_message(
+                f"✅ Prodotto aggiunto!\nURL: {url}\nTarget: {target_price}€\nPrimo prezzo registrato senza notifica.",
+                chat_id
+            )
 
         # ---------------- /remove ----------------
         elif command == "/remove":
