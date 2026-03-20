@@ -4,8 +4,8 @@ import random
 import re
 import time
 
+# ---------------- Amazon Tracker ----------------
 class AmazonPriceTracker:
-
     def __init__(self, db_handler, notifier=None):
         self.db = db_handler
         self.notifier = notifier
@@ -42,49 +42,79 @@ class AmazonPriceTracker:
             return None
 
     def validate_url(self, url):
-        """
-        Restituisce True se URL è valido amazon.it
-        Supporta link completi e link brevi risolti
-        """
         url_no_query = self.resolve_amzn_short_url(url)
         if not url_no_query:
             return False
-
-        # regex per URL amazon.it valido, anche senza titolo prima di /dp/
         pattern = r"^https?://(www\.)?amazon\.it/(?:.*?/)?dp/[A-Z0-9]{10}$"
         return bool(re.search(pattern, url_no_query))
 
-    def get_asin(self, url):
-        """
-        Estrae ASIN dall'URL amazon.it (senza query string)
-        """
-        url = self.resolve_amzn_short_url(url)
-        if not url:
-            return None
-        # ora regex funziona correttamente
-        m = re.search(r"/dp/([A-Z0-9]{10})", url)
-        return m.group(1) if m else None
-
     def resolve_amzn_short_url(self, url):
-        """
-        Risolve link brevi amzn.eu/d/... in URL amazon.it completo
-        Rimuove query string
-        """
-        # se non è link breve, restituisco originale
         if "amzn.eu/d/" in url:
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-                "Accept-Language": "it-IT,it;q=0.9,en;q=0.8"
-            }
+            headers = {"User-Agent": "Mozilla/5.0", "Accept-Language": "it-IT,it;q=0.9,en;q=0.8"}
             try:
                 r = requests.get(url, headers=headers, allow_redirects=True, timeout=10)
                 url = r.url
             except requests.exceptions.RequestException:
                 return None
+        return url.split("?")[0]
 
-        # rimuovo query string
-        url_no_query = url.split("?")[0]
-        return url_no_query
+# ---------------- DungeonDice Tracker ----------------
+class DungeondicePriceTracker:
+    def __init__(self, db_handler, notifier=None):
+        self.db = db_handler
+        self.notifier = notifier
+
+    def validate_url(self, url):
+        return "dungeondice.it/" in url
+
+    def get_price(self, url):
+        headers = {
+            "User-Agent": "Mozilla/5.0",
+            "Accept-Language": "it-IT,it;q=0.9"
+        }
+        try:
+            r = requests.get(url, headers=headers, timeout=10)
+            html = r.text
+        except:
+            return None
+
+        soup = BeautifulSoup(html, "html.parser")
+        price_tag = soup.select_one(".product-price")  # prezzo finale visibile
+        if not price_tag:
+            return None
+        price_text = price_tag.get_text(strip=True).replace("€", "").replace(".", "").replace(",", ".")
+        try:
+            return float(price_text)
+        except ValueError:
+            return None
+
+# ---------------- MultiTracker ----------------
+class MultiTracker:
+    """
+    Gestisce più tracker e il monitor dei prezzi
+    """
+    def __init__(self, db_handler, notifier=None):
+        self.db = db_handler
+        self.notifier = notifier
+        self.amazon = AmazonPriceTracker(db_handler, notifier)
+        self.dungeondice = DungeondicePriceTracker(db_handler, notifier)
+
+    def get_tracker_for_url(self, url):
+        if self.amazon.validate_url(url):
+            return self.amazon
+        elif self.dungeondice.validate_url(url):
+            return self.dungeondice
+        else:
+            return None
+
+    def validate_url(self, url):
+        return self.get_tracker_for_url(url) is not None
+
+    def get_price(self, url):
+        tracker = self.get_tracker_for_url(url)
+        if tracker:
+            return tracker.get_price(url)
+        return None
 
     def monitor(self, interval=1800):
         while True:
@@ -92,17 +122,20 @@ class AmazonPriceTracker:
             c.execute("SELECT chat_id, url, target_price, last_notified_price FROM products")
             products = c.fetchall()
             for chat_id, url, target, last_notified in products:
-                tracker = self.get_tracker_for_url(url)  # aggiunto per multi-sito
+                tracker = self.get_tracker_for_url(url)
                 if not tracker:
                     continue
                 price = tracker.get_price(url)
                 if price is None:
                     continue
-                self.db.add_price(url, price)
+                self.db.add_price(url, price)  # aggiunge allo storico
+
                 send_alert = False
                 if last_notified is not None and (price < last_notified or price <= target):
                     send_alert = True
+
                 if send_alert and self.notifier:
                     self.notifier.send_price_alert(url, price, chat_id)
                     self.db.update_last_notified(chat_id, url, price)
+
             time.sleep(interval)
