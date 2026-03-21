@@ -2,10 +2,10 @@ import os
 import threading
 import time
 
+from MultiTracker import MultiTracker
 from TelegramBotController import TelegramBotController
 from TelegramNotifier import TelegramNotifier
-from db import DBHandler
-from trackers import MultiTracker  # nuova classe aggregatrice dei tracker
+from db import DBHandler # nuova classe aggregatrice dei tracker
 
 def main():
     BOT_TOKEN = os.environ.get("BOT_TOKEN")

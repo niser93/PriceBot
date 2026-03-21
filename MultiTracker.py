@@ -1,3 +1,5 @@
+import time
+
 from trackers.AmazonPriceTracker import AmazonPriceTracker
 from trackers.DungeondicePriceTracker import DungeondicePriceTracker
 from trackers.MagicMerchantPriceTracker import MagicMerchantPriceTracker
