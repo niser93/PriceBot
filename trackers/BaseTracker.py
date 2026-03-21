@@ -4,22 +4,20 @@ class BaseTracker:
         self.notifier = notifier
 
     def validate_url(self, url):
+        raise NotImplementedError
+
+    def get_product_data(self, url):
         """
-        Deve restituire True se il tracker supporta l'URL
+        Deve restituire:
+        {
+            "price": float | None,
+            "available": bool,
+            "title": str | None
+        }
         """
         raise NotImplementedError
 
-    def get_price(self, url):
-        """
-        Deve restituire il prezzo come float oppure None
-        """
-        raise NotImplementedError
-
-    # opzionale ma utile
     def normalize_price(self, price_text):
-        """
-        Utility comune per convertire stringhe prezzo in float
-        """
         try:
             return float(
                 price_text
@@ -30,10 +28,3 @@ class BaseTracker:
             )
         except:
             return None
-
-    def get_product_info(self, url):
-        return {
-            "price": self.get_price(url),
-            "available": True,
-            "title": None
-        }

@@ -1,4 +1,5 @@
 import random
+import re
 
 import requests
 from bs4 import BeautifulSoup
@@ -22,21 +23,41 @@ class AmazonPriceTracker(BaseTracker):
             "Accept-Language": "it-IT,it;q=0.9,en;q=0.8"
         }
 
-    def get_price(self, url):
+    def validate_url(self, url):
+        url_no_query = self.resolve_amzn_short_url(url)
+        if not url_no_query:
+            return False
+        pattern = r"^https?://(www\.)?amazon\.it/(?:.*?/)?dp/[A-Z0-9]{10}$"
+        return bool(re.search(pattern, url_no_query))
+
+    def get_product_data(self, url):
         try:
             r = requests.get(url, headers=self.get_headers(), timeout=10)
             soup = BeautifulSoup(r.content, "html.parser")
-
-            selectors = [
-                ("span", {"id": "priceblock_ourprice"}),
-                ("span", {"id": "priceblock_dealprice"}),
-                ("span", {"class": "a-offscreen"})
-            ]
-
-            for tag, attrs in selectors:
-                el = soup.find(tag, attrs=attrs)
-                if el:
-                    return self.normalize_price(el.get_text())
-
         except:
-            return None
+            return {"price": None, "available": False, "title": None}
+
+        price = None
+        selectors = [
+            ("span", {"id": "priceblock_ourprice"}),
+            ("span", {"id": "priceblock_dealprice"}),
+            ("span", {"class": "a-offscreen"})
+        ]
+
+        for tag, attrs in selectors:
+            el = soup.find(tag, attrs=attrs)
+            if el:
+                price = self.normalize_price(el.get_text())
+                if price:
+                    break
+
+        title_tag = soup.find(id="productTitle")
+        title = title_tag.get_text(strip=True) if title_tag else None
+
+        available = price is not None
+
+        return {
+            "price": price,
+            "available": available,
+            "title": title
+        }

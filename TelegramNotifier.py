@@ -9,5 +9,8 @@ class TelegramNotifier:
         url = f"{self.base_url}/sendMessage"
         requests.post(url, data={"chat_id": chat_id, "text": text})
 
-    def send_price_alert(self, url, price, chat_id):
-        self.send_message(f"🔥 Prezzo sceso!\n{price}€\n{url}", chat_id)
+    def send_price_alert(self, url, price, chat_id, title=None):
+        msg = f"🔥 Prezzo sceso!\n{price}€\n{url}"
+        if title:
+            msg = f"🔥 {title}\n{price}€\n{url}"
+        self.send_message(msg, chat_id)

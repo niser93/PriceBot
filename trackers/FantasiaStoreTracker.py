@@ -4,10 +4,9 @@ from bs4 import BeautifulSoup
 from trackers.BaseTracker import BaseTracker
 
 
-# ---------------- DungeonDice Tracker ----------------
-class DungeondicePriceTracker(BaseTracker):
+class FantasiastorePriceTracker(BaseTracker):
     def validate_url(self, url):
-        return "dungeondice.it/" in url
+        return "fantasiastore.it" in url
 
     def get_product_data(self, url):
         headers = {
@@ -21,14 +20,29 @@ class DungeondicePriceTracker(BaseTracker):
         except:
             return {"price": None, "available": False, "title": None}
 
-        price_tag = soup.select_one(".product-price")
-        price = self.normalize_price(price_tag.get_text()) if price_tag else None
+        # prezzo
+        price = None
+        for sel in [".current-price", ".price", "[class*=price]"]:
+            el = soup.select_one(sel)
+            if el:
+                price = self.normalize_price(el.get_text())
+                if price:
+                    break
 
+        # disponibilità
+        text = soup.get_text().lower()
+        available = not any(k in text for k in [
+            "non disponibile",
+            "esaurito",
+            "out of stock"
+        ])
+
+        # titolo
         title_tag = soup.select_one("h1")
         title = title_tag.get_text(strip=True) if title_tag else None
 
         return {
             "price": price,
-            "available": price is not None,
+            "available": available,
             "title": title
         }

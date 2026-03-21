@@ -2,6 +2,7 @@ import time
 
 from trackers.AmazonPriceTracker import AmazonPriceTracker
 from trackers.DungeondicePriceTracker import DungeondicePriceTracker
+from trackers.FantasiaStoreTracker import FantasiastorePriceTracker
 from trackers.MagicMerchantPriceTracker import MagicMerchantPriceTracker
 
 
@@ -15,6 +16,7 @@ class MultiTracker:
         self.register(AmazonPriceTracker(db_handler, notifier))
         self.register(DungeondicePriceTracker(db_handler, notifier))
         self.register(MagicMerchantPriceTracker(db_handler, notifier))
+        self.register(FantasiastorePriceTracker(db_handler, notifier))
 
     def register(self, tracker):
         self.trackers.append(tracker)
@@ -48,18 +50,28 @@ class MultiTracker:
                 if not tracker:
                     continue
 
-                price = tracker.get_price(url)
-                if price is None:
+                data = tracker.get_product_data(url)
+
+                price = data.get("price")
+                available = data.get("available")
+
+                if price is None or not available:
                     continue
 
                 self.db.add_price(url, price)
 
                 send_alert = False
-                if last_notified is not None and (price < last_notified or price <= target):
-                    send_alert = True
+
+                if last_notified is None:
+                    if price <= target:
+                        send_alert = True
+                else:
+                    if price < last_notified or price <= target:
+                        send_alert = True
 
                 if send_alert and self.notifier:
-                    self.notifier.send_price_alert(url, price, chat_id)
+                    title = data.get("title")
+                    self.notifier.send_price_alert(url, price, chat_id, title)
                     self.db.update_last_notified(chat_id, url, price)
 
             time.sleep(interval)
