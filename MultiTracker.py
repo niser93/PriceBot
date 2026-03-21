@@ -70,7 +70,8 @@ class MultiTracker:
                         send_alert = True
 
                 if send_alert and self.notifier:
-                    self.notifier.send_price_alert(url, price, chat_id)
+                    title = data.get("title")
+                    self.notifier.send_price_alert(url, price, chat_id, title)
                     self.db.update_last_notified(chat_id, url, price)
 
             time.sleep(interval)
