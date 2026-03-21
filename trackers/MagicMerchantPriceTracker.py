@@ -11,7 +11,7 @@ class MagicMerchantPriceTracker(BaseTracker):
     def validate_url(self, url):
         return "magicmerchant.it" in url
 
-    def get_price(self, url):
+    def get_product_data(self, url):
         headers = {
             "User-Agent": "Mozilla/5.0",
             "Accept-Language": "it-IT,it;q=0.9"
@@ -21,13 +21,15 @@ class MagicMerchantPriceTracker(BaseTracker):
             r = requests.get(url, headers=headers, timeout=10)
             soup = BeautifulSoup(r.text, "html.parser")
         except:
-            return None
+            return {"price": None, "available": False, "title": None}
 
-        # vari selettori possibili (fallback)
+        # selettori prezzi (fallback)
+        price = None
         selectors = [
-            ".price .current",
-            ".special-price",
             ".product-price",
+            ".price",
+            ".current-price",
+            "[class*=price]"
         ]
 
         for sel in selectors:
@@ -35,6 +37,17 @@ class MagicMerchantPriceTracker(BaseTracker):
             if el:
                 price = self.normalize_price(el.get_text())
                 if price:
-                    return price
+                    break
 
-        return None
+        # titolo prodotto
+        title_tag = soup.select_one("h1")
+        title = title_tag.get_text(strip=True) if title_tag else None
+
+        # disponibilità: se c'è prezzo lo consideriamo disponibile
+        available = price is not None
+
+        return {
+            "price": price,
+            "available": available,
+            "title": title
+        }
