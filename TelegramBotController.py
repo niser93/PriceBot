@@ -30,7 +30,7 @@ class TelegramBotController:
         if command == "/start":
             self.db.add_user(chat_id)  # registra l'utente
             welcome_msg = (
-                "👋 Benvenuto! Ora puoi monitorare i prezzi.\n\n"
+                "👋 Benvenuto! Ora puoi monitorare i prezzi Amazon.\n\n"
                 "Comandi disponibili:\n"
                 "/add <URL> <target> - aggiungi un prodotto\n"
                 "/remove <URL> - rimuovi un prodotto\n"
@@ -64,6 +64,7 @@ class TelegramBotController:
             return
 
         # ---------------- /add ----------------
+        # dentro handle_command
         if command == "/add":
             if len(parts) < 3:
                 self.send_message("❌ /add <URL> <target>", chat_id)
@@ -94,35 +95,27 @@ class TelegramBotController:
                 f"✅ Prodotto aggiunto!\nURL: {url}\nTarget: {target_price}€\nPrimo prezzo registrato senza notifica.",
                 chat_id
             )
-            return
 
         # ---------------- /remove ----------------
-        if command == "/remove":
-            if len(parts) < 2:
-                self.send_message("❌ /remove <URL>", chat_id)
-                return
+        elif command == "/remove":
+            if len(parts) < 2: self.send_message("❌ /remove <URL>", chat_id); return
             url = parts[1]
             self.db.remove_product(chat_id, url)
             self.send_message(f"🗑️ Rimosso: {url}", chat_id)
-            return
 
         # ---------------- /list ----------------
-        if command == "/list":
+        elif command == "/list":
             products = self.db.list_products(chat_id)
             if not products:
                 self.send_message("📭 Nessun prodotto", chat_id)
             else:
                 msg = "📦 Prodotti:\n"
-                for u, t in products:
-                    msg += f"{u} (target:{t}€)\n"
+                for u, t in products: msg += f"{u} (target:{t}€)\n"
                 self.send_message(msg, chat_id)
-            return
 
         # ---------------- /history ----------------
-        if command == "/history":
-            if len(parts) < 2:
-                self.send_message("❌ /history <URL>", chat_id)
-                return
+        elif command == "/history":
+            if len(parts) < 2: self.send_message("❌ /history <URL>", chat_id); return
             url = parts[1]
             history = self.db.get_history(url, limit=10)
             if not history:
@@ -132,10 +125,10 @@ class TelegramBotController:
                 for p, t in reversed(history):
                     msg += f"{time.strftime('%Y-%m-%d %H:%M', time.localtime(t))} → {p}€\n"
                 self.send_message(msg, chat_id)
-            return
 
         # ---------------- comando non valido ----------------
-        self.send_message("❓ Comando non valido. /start /help /add /remove /list /history", chat_id)
+        else:
+            self.send_message("❓ Comando non valido. /start /help /add /remove /list /history", chat_id)
 
     def run(self):
         while True:
