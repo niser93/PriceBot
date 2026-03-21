@@ -1,7 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 
-from .BaseTracker import BaseTracker
+from trackers.BaseTracker import BaseTracker
 
 
 class MagicMerchantPriceTracker(BaseTracker):
