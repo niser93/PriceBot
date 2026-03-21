@@ -11,13 +11,9 @@ class TelegramBotController:
 
     def get_updates(self):
         url = f"{self.base_url}/getUpdates"
-        params = {
-            "timeout": 30
-        }
-
-        if self.last_update_id is not None:
+        params = {}
+        if self.last_update_id:
             params["offset"] = self.last_update_id + 1
-
         r = requests.get(url, params=params).json()
         return r.get("result", [])
 
@@ -137,18 +133,12 @@ class TelegramBotController:
     def run(self):
         while True:
             updates = self.get_updates()
-
             for u in updates:
+                self.last_update_id = u["update_id"]
                 try:
                     msg = u["message"]["text"]
                     chat_id = u["message"]["chat"]["id"]
-
                     self.handle_command(msg, chat_id)
-
-                    # aggiorna offset SOLO dopo aver gestito
-                    self.last_update_id = u["update_id"]
-
                 except:
                     continue
-
             time.sleep(1)
