@@ -50,6 +50,7 @@ class DBHandler:
 
     # ---------------- utenti ----------------
     def add_user(self, chat_id):
+        chat_id = str(chat_id)
         c = self.conn.cursor()
         c.execute(
             "INSERT INTO users (chat_id) VALUES (%s) ON CONFLICT DO NOTHING",
@@ -58,19 +59,22 @@ class DBHandler:
 
     # ---------------- prodotti ----------------
     def add_product(self, chat_id, url, target_price):
+        chat_id = str(chat_id)
         self.add_user(chat_id)
         c = self.conn.cursor()
         c.execute("""
             INSERT INTO products (chat_id, url, target_price)
-            VALUES (%s,%s,%s)
+            VALUES (%s, %s, %s)
             ON CONFLICT (chat_id, url) DO UPDATE SET target_price = EXCLUDED.target_price
         """, (chat_id, url, target_price))
 
     def remove_product(self, chat_id, url):
+        chat_id = str(chat_id)
         c = self.conn.cursor()
         c.execute("DELETE FROM products WHERE chat_id=%s AND url=%s", (chat_id, url))
 
     def list_products(self, chat_id):
+        chat_id = str(chat_id)
         c = self.conn.cursor()
         c.execute("SELECT url, target_price FROM products WHERE chat_id=%s", (chat_id,))
         return c.fetchall()
@@ -81,6 +85,7 @@ class DBHandler:
         return [row[0] for row in c.fetchall()]
 
     def update_last_notified(self, chat_id, url, price):
+        chat_id = str(chat_id)
         c = self.conn.cursor()
         c.execute("""
             UPDATE products
@@ -93,7 +98,7 @@ class DBHandler:
         ts = int(time.time())
         c = self.conn.cursor()
         c.execute(
-            "INSERT INTO price_history (url, price, timestamp) VALUES (%s,%s,%s)",
+            "INSERT INTO price_history (url, price, timestamp) VALUES (%s, %s, %s)",
             (url, price, ts)
         )
 
