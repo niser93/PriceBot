@@ -114,7 +114,6 @@ class TelegramBotController:
         # ---------------- /list ----------------
         elif command == "/list":
             products = self.db.list_products_full(chat_id)
-            print(products)
 
             if not products:
                 self.notifier.send_message("📭 Nessun prodotto", chat_id)
