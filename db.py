@@ -58,15 +58,17 @@ class DBHandler:
         )
 
     # ---------------- prodotti ----------------
-    def add_product(self, chat_id, url, target_price):
+    def add_product(self, chat_id, url, target_price, title=None):
         chat_id = str(chat_id)
         self.add_user(chat_id)
         c = self.conn.cursor()
         c.execute("""
-            INSERT INTO products (chat_id, url, target_price)
-            VALUES (%s, %s, %s)
-            ON CONFLICT (chat_id, url) DO UPDATE SET target_price = EXCLUDED.target_price
-        """, (chat_id, url, target_price))
+                  INSERT INTO products (chat_id, url, target_price, title)
+                  VALUES (%s, %s, %s, %s) ON CONFLICT (chat_id, url) DO
+                  UPDATE SET
+                      target_price = EXCLUDED.target_price,
+                      title = COALESCE (EXCLUDED.title, products.title)
+                  """, (chat_id, url, target_price, title))
 
     def remove_product(self, chat_id, url):
         chat_id = str(chat_id)
@@ -112,3 +114,93 @@ class DBHandler:
             LIMIT %s
         """, (url, limit))
         return c.fetchall()
+
+    def list_products_with_last_price(self, chat_id):
+        """
+        Restituisce per ogni prodotto dell'utente:
+        [(url, target_price, last_notified_price)]
+        """
+        chat_id = str(chat_id)
+        c = self.conn.cursor()
+        c.execute("""
+                  SELECT url, target_price, last_notified_price
+                  FROM products
+                  WHERE chat_id = %s
+                  """, (chat_id,))
+        return c.fetchall()
+
+    def get_last_price_with_date(self, url):
+        """
+        Ritorna (price, timestamp) più recente dallo storico prezzi
+        """
+        c = self.conn.cursor()
+        c.execute("""
+                  SELECT price, timestamp
+                  FROM price_history
+                  WHERE url=%s
+                  ORDER BY timestamp DESC
+                      LIMIT 1
+                  """, (url,))
+        row = c.fetchone()
+        if row:
+            return row
+        return (None, None)
+
+    def list_products_full(self, chat_id):
+        """
+        Restituisce tutti i prodotti dell'utente con:
+        (url, target_price, last_notified_price, last_price, last_timestamp, title)
+        """
+        chat_id = str(chat_id)
+        c = self.conn.cursor()
+        c.execute("""
+                  SELECT p.url,
+                         p.target_price,
+                         p.last_notified_price,
+                         ph.price,
+                         ph.timestamp,
+                         p.title
+                  FROM products p
+                           LEFT JOIN LATERAL (
+                      SELECT price, timestamp
+                  FROM price_history
+                  WHERE url = p.url
+                  ORDER BY timestamp DESC
+                      LIMIT 1
+                      ) ph
+                  ON TRUE
+                  WHERE p.chat_id=%s
+                  """, (chat_id,))
+        return c.fetchall()
+
+    def get_product_title_and_history(self, url, limit=10):
+        """
+        Restituisce:
+        - title del prodotto (colonna title)
+        - lista degli ultimi prezzi [(price, timestamp), ...]
+        """
+        c = self.conn.cursor()
+        c.execute("SELECT title FROM products WHERE url=%s LIMIT 1", (url,))
+        row = c.fetchone()
+        title = row[0] if row and row[0] else None
+
+        c.execute("""
+                  SELECT price, timestamp
+                  FROM price_history
+                  WHERE url=%s
+                  ORDER BY timestamp DESC
+                      LIMIT %s
+                  """, (url, limit))
+        history = c.fetchall()
+        return title, history
+
+    def reset_database(self):
+        """
+        Svuota completamente il DB riportando le tabelle allo stato iniziale.
+        ATTENZIONE: cancella TUTTI gli utenti, prodotti e storici prezzi!
+        """
+        c = self.conn.cursor()
+        # svuota le tabelle
+        c.execute("TRUNCATE TABLE price_history RESTART IDENTITY CASCADE;")
+        c.execute("TRUNCATE TABLE products RESTART IDENTITY CASCADE;")
+        c.execute("TRUNCATE TABLE users RESTART IDENTITY CASCADE;")

@@ -12,11 +12,12 @@ def main():
     CHECK_INTERVAL = int(os.environ.get("CHECK_INTERVAL", 1800))
 
     db = DBHandler()
+    #db.reset_database()
     notifier = TelegramNotifier(BOT_TOKEN)
     multi_tracker = MultiTracker(db_handler=db, notifier=notifier)
 
     # bot Telegram
-    bot = TelegramBotController(token=BOT_TOKEN, tracker=multi_tracker, db=db)
+    bot = TelegramBotController(token=BOT_TOKEN, tracker=multi_tracker, db=db, notifier=notifier)
     t = threading.Thread(target=bot.run)
     t.daemon = True
     t.start()

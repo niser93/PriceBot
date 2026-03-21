@@ -2,10 +2,11 @@ import requests
 import time
 
 class TelegramBotController:
-    def __init__(self, token, tracker, db):
+    def __init__(self, token, tracker, db, notifier):
         self.token = token
         self.tracker = tracker
         self.db = db
+        self.notifier = notifier
         self.base_url = f"https://api.telegram.org/bot{token}"
         self.last_update_id = None
 
@@ -16,10 +17,6 @@ class TelegramBotController:
             params["offset"] = self.last_update_id + 1
         r = requests.get(url, params=params).json()
         return r.get("result", [])
-
-    def send_message(self, text, chat_id):
-        url = f"{self.base_url}/sendMessage"
-        requests.post(url, data={"chat_id": chat_id, "text": text})
 
     def handle_command(self, text, chat_id):
         parts = text.strip().split(maxsplit=2)
@@ -38,7 +35,7 @@ class TelegramBotController:
                 "/history <URL> - storico prezzi\n"
                 "/help - mostra questo messaggio"
             )
-            self.send_message(welcome_msg, chat_id)
+            self.notifier.send_message(welcome_msg, chat_id)
             return
 
         # ---------------- verifica registrazione ----------------
@@ -46,7 +43,7 @@ class TelegramBotController:
         chat_id_str = str(chat_id)
         c.execute("SELECT 1 FROM users WHERE chat_id=%s", (chat_id_str,))
         if not c.fetchone():
-            self.send_message("❗ Devi prima inviare /start per registrarti.", chat_id)
+            self.notifier.send_message("❗ Devi prima inviare /start per registrarti.", chat_id)
             return
 
         # ---------------- /help ----------------
@@ -60,31 +57,37 @@ class TelegramBotController:
                 "/start - inizializza bot\n"
                 "/help - mostra questo messaggio"
             )
-            self.send_message(help_msg, chat_id)
+            self.notifier.send_message(help_msg, chat_id)
             return
 
         # ---------------- /add ----------------
         # dentro handle_command
         if command == "/add":
             if len(parts) < 3:
-                self.send_message("❌ /add <URL> <target>", chat_id)
+                self.notifier.send_message("❌ /add <URL> <target>", chat_id)
                 return
             url = parts[1]
             price_text = parts[2].replace(",", ".")
             try:
                 target_price = float(price_text)
             except ValueError:
-                self.send_message("❌ Prezzo non valido", chat_id)
+                self.notifier.send_message("❌ Prezzo non valido", chat_id)
                 return
 
             # Ottieni il tracker corretto per questo URL
             tracker = self.tracker.get_tracker_for_url(url)
             if not tracker:
-                self.send_message("❌ URL non valido o sito non supportato", chat_id)
+                self.notifier.send_message("❌ URL non valido o sito non supportato", chat_id)
                 return
 
-            # salva il prodotto nel DB
-            self.db.add_product(chat_id, url, target_price)
+            # ricava subito il titolo dal tracker
+            title = None
+            data = tracker.get_product_data(url)
+            if data:
+                title = data.get("title")
+
+            # salva prodotto nel DB con titolo
+            self.db.add_product(chat_id, url, target_price, title=title)
 
             # prova a salvare primo prezzo
             data = tracker.get_product_data(url)
@@ -96,7 +99,7 @@ class TelegramBotController:
             else:
                 msg_price = "Impossibile rilevare il prezzo iniziale al momento."
 
-            self.send_message(
+            self.notifier.send_message(
                 f"✅ Prodotto aggiunto!\nURL: {url}\nTarget: {target_price}€\n{msg_price}",
                 chat_id
             )
@@ -106,34 +109,49 @@ class TelegramBotController:
             if len(parts) < 2: self.send_message("❌ /remove <URL>", chat_id); return
             url = parts[1]
             self.db.remove_product(chat_id, url)
-            self.send_message(f"🗑️ Rimosso: {url}", chat_id)
+            self.notifier.send_message(f"🗑️ Rimosso: {url}", chat_id)
 
         # ---------------- /list ----------------
         elif command == "/list":
-            products = self.db.list_products(chat_id)
+            products = self.db.list_products_full(chat_id)
+            print(products)
+
             if not products:
-                self.send_message("📭 Nessun prodotto", chat_id)
+                self.notifier.send_message("📭 Nessun prodotto", chat_id)
             else:
                 msg = "📦 Prodotti:\n"
-                for u, t in products: msg += f"{u} (target:{t}€)\n"
-                self.send_message(msg, chat_id)
+                for url, target, last_notified, last_price, ts, title in products:
+                    last_price_text = f"{last_price}€ ({time.strftime('%H:%M %d/%m/%Y', time.localtime(ts))})" \
+                        if last_price else "non ancora rilevato"
+                    display_text = title if title else url.rstrip("/").split("/")[-1]
+                    msg += f'- <a href="{url}">{display_text}</a>\n  Target: {target}€, Ultimo prezzo: {last_price_text}\n'
+
+                self.notifier.send_message(msg, chat_id, parse_mode="HTML")
 
         # ---------------- /history ----------------
         elif command == "/history":
-            if len(parts) < 2: self.send_message("❌ /history <URL>", chat_id); return
+            if len(parts) < 2:
+                self.notifier.send_message("❌ /history <URL>", chat_id)
+                return
+
             url = parts[1]
-            history = self.db.get_history(url, limit=10)
+            title, history = self.db.get_product_title_and_history(url, limit=10)
+
             if not history:
-                self.send_message("📭 Nessuno storico", chat_id)
-            else:
-                msg = f"📊 Storico {url}:\n"
-                for p, t in reversed(history):
-                    msg += f"{time.strftime('%Y-%m-%d %H:%M', time.localtime(t))} → {p}€\n"
-                self.send_message(msg, chat_id)
+                self.notifier.send_message("📭 Nessuno storico", chat_id)
+                return
+
+            display_text = title if title else url.rstrip("/").split("/")[-1]
+
+            msg = f"📊 Storico <a href=\"{url}\">{display_text}</a>:\n"
+            for p, t in reversed(history):
+                msg += f"{time.strftime('%H:%M %d/%m/%Y', time.localtime(t))} → {p}€\n"
+
+            self.notifier.send_message(msg, chat_id, parse_mode="HTML")
 
         # ---------------- comando non valido ----------------
         else:
-            self.send_message("❓ Comando non valido. /start /help /add /remove /list /history", chat_id)
+            self.notifier.send_message("❓ Comando non valido. /start /help /add /remove /list /history", chat_id)
 
     def run(self):
         while True:
