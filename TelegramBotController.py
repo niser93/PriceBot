@@ -137,12 +137,18 @@ class TelegramBotController:
     def run(self):
         while True:
             updates = self.get_updates()
+
             for u in updates:
-                self.last_update_id = u["update_id"]
                 try:
                     msg = u["message"]["text"]
                     chat_id = u["message"]["chat"]["id"]
+
                     self.handle_command(msg, chat_id)
+
+                    # aggiorna offset SOLO dopo aver gestito
+                    self.last_update_id = u["update_id"]
+
                 except:
                     continue
+
             time.sleep(1)
