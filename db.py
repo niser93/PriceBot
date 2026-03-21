@@ -205,3 +205,18 @@ class DBHandler:
         c.execute("TRUNCATE TABLE price_history RESTART IDENTITY CASCADE;")
         c.execute("TRUNCATE TABLE products RESTART IDENTITY CASCADE;")
         c.execute("TRUNCATE TABLE users RESTART IDENTITY CASCADE;")
+
+    def drop_database(self):
+        """
+        Elimina tutte le tabelle e le ricrea, riportando il DB allo stato iniziale.
+        ATTENZIONE: cancella TUTTI gli utenti, prodotti e storici prezzi!
+        """
+        c = self.conn.cursor()
+
+        # elimina le tabelle se esistono
+        c.execute("DROP TABLE IF EXISTS price_history CASCADE;")
+        c.execute("DROP TABLE IF EXISTS products CASCADE;")
+        c.execute("DROP TABLE IF EXISTS users CASCADE;")
+
+        # ricrea le tabelle
+        self.create_tables()
