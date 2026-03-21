@@ -83,16 +83,21 @@ class TelegramBotController:
                 self.send_message("❌ URL non valido o sito non supportato", chat_id)
                 return
 
-            # Salva il prodotto nel DB
+            # salva il prodotto nel DB
             self.db.add_product(chat_id, url, target_price)
 
-            # Salva il primo prezzo senza notificare
-            initial_price = tracker.get_price(url)
+            # prova a salvare primo prezzo
+            data = tracker.get_product_data(url)
+            initial_price = data.get("price")
+
             if initial_price is not None:
                 self.db.add_price(url, initial_price)
+                msg_price = f"Primo prezzo registrato senza notifica: {initial_price}€"
+            else:
+                msg_price = "Impossibile rilevare il prezzo iniziale al momento."
 
             self.send_message(
-                f"✅ Prodotto aggiunto!\nURL: {url}\nTarget: {target_price}€\nPrimo prezzo registrato senza notifica.",
+                f"✅ Prodotto aggiunto!\nURL: {url}\nTarget: {target_price}€\n{msg_price}",
                 chat_id
             )
 
