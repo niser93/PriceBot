@@ -3,7 +3,7 @@ import random
 import requests
 from bs4 import BeautifulSoup
 
-from .BaseTracker import BaseTracker
+from trackers.BaseTracker import BaseTracker
 
 
 # ---------------- Amazon Tracker ----------------
