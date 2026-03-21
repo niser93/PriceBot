@@ -12,7 +12,6 @@ def main():
     CHECK_INTERVAL = int(os.environ.get("CHECK_INTERVAL", 1800))
 
     db = DBHandler()
-    db.drop_database()
     notifier = TelegramNotifier(BOT_TOKEN)
     multi_tracker = MultiTracker(db_handler=db, notifier=notifier)
 
