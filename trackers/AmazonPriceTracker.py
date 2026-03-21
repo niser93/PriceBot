@@ -87,6 +87,7 @@ class AmazonPriceTracker(BaseTracker):
         for tag, attrs in selectors:
             el = soup.find(tag, attrs=attrs)
             if el:
+                print(el.get_text())
                 price = self.normalize_price(el.get_text())
                 if price is not None:
                     break
