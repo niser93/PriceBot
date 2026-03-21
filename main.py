@@ -1,6 +1,5 @@
 import os
 import threading
-import time
 
 from MultiTracker import MultiTracker
 from TelegramBotController import TelegramBotController

@@ -8,13 +8,6 @@ from trackers.BaseTracker import BaseTracker
 
 
 # ---------------- Amazon Tracker ----------------
-import requests
-from bs4 import BeautifulSoup
-import random
-import re
-from .base_tracker import BaseTracker  # supponendo tu abbia BaseTracker
-
-
 class AmazonPriceTracker(BaseTracker):
     def __init__(self, db_handler, notifier=None):
         super().__init__(db_handler, notifier)
