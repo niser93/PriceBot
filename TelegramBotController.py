@@ -11,9 +11,13 @@ class TelegramBotController:
 
     def get_updates(self):
         url = f"{self.base_url}/getUpdates"
-        params = {}
-        if self.last_update_id:
+        params = {
+            "timeout": 30
+        }
+
+        if self.last_update_id is not None:
             params["offset"] = self.last_update_id + 1
+
         r = requests.get(url, params=params).json()
         return r.get("result", [])
 
