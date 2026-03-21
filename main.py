@@ -1,5 +1,6 @@
 import os
 import threading
+import time
 
 from MultiTracker import MultiTracker
 from TelegramBotController import TelegramBotController
@@ -11,6 +12,7 @@ def main():
     CHECK_INTERVAL = int(os.environ.get("CHECK_INTERVAL", 1800))
 
     db = DBHandler()
+    db.reset_database()
     notifier = TelegramNotifier(BOT_TOKEN)
     multi_tracker = MultiTracker(db_handler=db, notifier=notifier)
 

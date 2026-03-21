@@ -36,6 +36,7 @@ class DBHandler:
                 url TEXT,
                 target_price REAL,
                 last_notified_price REAL DEFAULT NULL,
+                title TEXT,
                 PRIMARY KEY(chat_id, url)
             )
         """)
