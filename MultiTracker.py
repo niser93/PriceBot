@@ -1,5 +1,6 @@
 import time
 
+from AgriEuroPriceTracker import AgriEuroPriceTracker
 from trackers.AmazonPriceTracker import AmazonPriceTracker
 from trackers.DungeondicePriceTracker import DungeondicePriceTracker
 from trackers.FantasiaStoreTracker import FantasiastorePriceTracker
@@ -17,6 +18,7 @@ class MultiTracker:
         self.register(DungeondicePriceTracker(db_handler, notifier))
         self.register(MagicMerchantPriceTracker(db_handler, notifier))
         self.register(FantasiastorePriceTracker(db_handler, notifier))
+        self.register(AgriEuroPriceTracker(db_handler, notifier))
 
     def register(self, tracker):
         self.trackers.append(tracker)
